@@ -35,12 +35,6 @@ def normalize_distrib' : list ℕ → list ℕ
 def normalize_distrib : list ℕ → list ℕ :=
 list.reverse ∘ normalize_distrib' ∘ list.reverse
 
-def list.mono (l : list ℕ) : Prop :=
-∀ (n : ℕ) (hn : n.succ < l.length), l.nth_le n (n.lt_succ_self.trans hn) ≤ l.nth_le n.succ hn
-
-lemma normalize_distrib_mono {l : list ℕ} : list.mono (normalize_distrib l) :=
-sorry
-
 @[derive [decidable_pred]]
 def list.placed (l : list ℕ) (n : ℕ) (i : ℕ) : Prop :=
 if hi : i < l.length then n ≤ l.nth_le i hi else false
@@ -60,19 +54,26 @@ lemma exists_placed_iff {l : list ℕ} {n : ℕ} :
 instance {l : list ℕ} {n : ℕ} : decidable (∃ i, l.placed n i) :=
 decidable_of_iff' _ exists_placed_iff
 
-def list.place (l : list ℕ) (hmono : l.mono) (n : ℕ) : ℕ :=
+def list.place (l : list ℕ) (n : ℕ) : ℕ :=
 if hi : ∃ i, l.placed n i then @nat.find (l.placed n) infer_instance hi else l.length
 
-def list.distribute (distrib : list ℕ) (hmono : distrib.mono) : 
+def list.distribute (distrib : list ℕ) : 
   list ℕ → list ℕ
 | [] := []
-| (x :: xs) := distrib.place hmono x :: list.distribute xs
+| (x :: xs) := distrib.place x :: list.distribute xs
 
 def random_num_list_distrib (m : ℕ) (distrib : list ℕ) : io (list ℕ) := do 
-  rnd ← random_num_list (list.sum distrib) m,
-  return ((normalize_distrib distrib).distribute normalize_distrib_mono rnd)
+  rnd ← random_num_list (list.sum distrib + 1) m,
+  return ((normalize_distrib distrib).distribute rnd)
   
-#eval random_num_list_distrib 100 [0, 0, 8, 9, 8, 9] >>= print
+#eval random_num_list_distrib 100 [1, 1, 1, 1, 1, 1] >>= print
 
+/-! # Historgram -/
 
+def list.counts_occurence (l : list ℕ) : list ℕ :=
+(list.range (l.foldr max 1 + 1)).map (λ n, l.count n)
 
+def counts_occurence_io : io (list ℕ) → io (list ℕ) :=
+functor.map list.counts_occurence
+
+#eval counts_occurence_io (random_num_list_distrib 100 [1, 0, 0, 9, 8, 1]) >>= print
